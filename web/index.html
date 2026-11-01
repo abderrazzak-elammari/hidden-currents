@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden currents</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Hidden currents</h1>
+    <p class="sub">An advection–diffusion PINN reads sea surface temperature and infers the currents that move it. Ground truth: HF radar.</p>
+  </div>
+  <div class="badges">
+    <span class="badge" id="badge-source">—</span>
+    <span class="badge dim" id="badge-dates">—</span>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card map-card">
+    <div class="toolbar">
+      <div class="seg" id="field-seg">
+        <button data-field="T" class="on">Observed SST</button>
+        <button data-field="T_fit">Reconstructed SST</button>
+        <button data-field="speed">PINN speed</button>
+      </div>
+      <div class="layers">
+        <label><input type="checkbox" id="lay-pinn" checked><i class="sw pinn"></i>PINN</label>
+        <label><input type="checkbox" id="lay-ref" checked><i class="sw ref"></i><span id="ref-label">reference</span></label>
+        <label><input type="checkbox" id="lay-flow"><i class="sw flow"></i>optical flow</label>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <canvas id="map"></canvas>
+      <div class="cbar"><span id="cb-lo"></span><div class="cbar-ramp" id="cb-ramp"></div><span id="cb-hi"></span></div>
+      <div class="hover" id="hover"></div>
+    </div>
+    <div class="timeline">
+      <button id="play" title="play">▶</button>
+      <input type="range" id="day" min="0" max="0" value="0">
+      <div class="day-label"><strong id="day-n">jour 0</strong><span id="day-date"></span></div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card">
+      <h2>Against the reference</h2>
+      <table class="metrics" id="metrics">
+        <thead><tr><th></th><th>PINN</th><th>optical flow</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="note" id="metrics-note"></p>
+    </section>
+
+    <section class="card kappa">
+      <h2>Inferred diffusivity</h2>
+      <div class="big"><span id="kappa">—</span><small>m²/s</small></div>
+      <p class="note">κ is a free parameter of the PINN, learned together with the stream function.</p>
+    </section>
+
+    <section class="card">
+      <h2>Training</h2>
+      <svg id="loss" viewBox="0 0 320 150" preserveAspectRatio="none"></svg>
+      <div class="legend">
+        <span><i class="sw" style="background:#9fd0ff"></i>data</span>
+        <span><i class="sw" style="background:#ffb547"></i>PDE residual</span>
+        <span class="dim">shading: time window (curriculum)</span>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<footer class="foot">
+  Data: Ifremer ERDDAP — ODYSSEA L4 SST (<code>IFR-L4-SSTfnd-ODYSSEA-GLOB_010</code>), EUSKOOS HF radar (<code>HF_75c7_5b60_95d8</code>).
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
