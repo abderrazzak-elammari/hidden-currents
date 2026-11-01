@@ -1,0 +1,7 @@
+numpy
+scipy
+torch
+xarray
+netCDF4
+requests
+pytest

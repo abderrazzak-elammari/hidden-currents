@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+data/*.nc
+data/*.npz
+runs/
+web/data/run.json
+.pytest_cache/
