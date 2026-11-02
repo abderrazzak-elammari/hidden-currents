@@ -1,7 +1,7 @@
 import argparse
 import datetime as dt
+import os
 import pathlib
-import sys
 
 import requests
 
@@ -11,29 +11,19 @@ SST_ID = "jplMURSST41"
 SST_STRIDE = 5          # 0.05°, about the radar grid
 
 # EUSKOOS HF radar totals, SE Bay of Biscay, hourly since 2018-12, EMODnet Physics.
-# Ifremer mirrors it too but under hashed IDs (HF_ac49_84ad_3eb6 in Nov 2026) that change
-# on every re-harvest. `--list euskoos` searches the radar server.
+# Ifremer mirrors it too but under hashed IDs that change on every re-harvest.
 RADAR_SERVER = "https://erddap.emodnet-physics.eu/erddap"
 RADAR_ID = "EUHFR_NRTcurrent_HFR-EUSKOOS-Total"
 
 PAD = 0.4               # SST box = radar box + this, degrees
-
-
-def role(dim):
-    d = dim.lower()
-    if d == "time":
-        return "t"
-    if d in ("latitude", "lat"):
-        return "y"
-    if d in ("longitude", "lon"):
-        return "x"
-    return None
+MAX_GDOP = 2.0          # usual EU HFR cut, poorer geometry is noise
+MIN_HOURS = 12          # a daily mean from 3 hours is mostly tide
 
 
 def info(server, did):
     r = requests.get(f"{server}/info/{did}/index.json", timeout=120)
     if r.status_code != 200:
-        raise SystemExit(f"{did} @ {server}: {r.status_code}\n{r.text[:300]}\n\ntry: python fetch.py --list radar")
+        raise SystemExit(f"{did} @ {server}: {r.status_code}\n{r.text[:300]}")
     meta = dict(server=server, id=did, attrs={}, vars={}, ranges={})
     for kind, name, attr, _t, value in r.json()["table"]["rows"]:
         if kind == "attribute" and name == "NC_GLOBAL":
@@ -49,40 +39,26 @@ def info(server, did):
     return meta
 
 
-def axis(meta, which):
-    for name, rng in meta["ranges"].items():
-        if role(name) == which:
-            return name, rng
-    return None, None
-
-
 def day(sec):
     return dt.datetime.fromtimestamp(sec, dt.timezone.utc).date()
 
 
 def describe(meta):
-    a = meta["attrs"]
     print(f"\n{meta['id']}  @ {meta['server']}")
-    print(f"  {a.get('title', '')}")
-    for k in ("platform_code", "site_code", "network", "area", "institution"):
-        if k in a:
-            print(f"  {k}: {a[k]}")
-    _, t = axis(meta, "t")
-    _, y = axis(meta, "y")
-    _, x = axis(meta, "x")
-    if t:
-        print(f"  time  {day(t[0])} -> {day(t[1])}")
-    if y and x:
-        print(f"  lat   {y[0]:.2f} / {y[1]:.2f}    lon {x[0]:.2f} / {x[1]:.2f}")
+    print(f"  {meta['attrs'].get('title', '')}")
+    r = meta["ranges"]
+    if "time" in r:
+        print(f"  time  {day(r['time'][0])} -> {day(r['time'][1])}")
+    if "latitude" in r and "longitude" in r:
+        print(f"  lat   {r['latitude'][0]:.2f} / {r['latitude'][1]:.2f}    lon {r['longitude'][0]:.2f} / {r['longitude'][1]:.2f}")
     for v, dims in meta["vars"].items():
         print(f"  {v:<14}({', '.join(dims)})")
 
 
 def check_dates(meta, t0, t1):
-    _, t = axis(meta, "t")
-    if not t:
+    if "time" not in meta["ranges"]:
         return
-    lo, hi = day(t[0]), day(t[1])
+    lo, hi = (day(s) for s in meta["ranges"]["time"])
     if dt.date.fromisoformat(t0) < lo or dt.date.fromisoformat(t1) > hi:
         raise SystemExit(f"{meta['id']} covers {lo} -> {hi}. Pick --start/--end inside that.")
 
@@ -97,12 +73,11 @@ def selector(meta, var, t0, t1, box, stride, flip):
         lat0, lat1 = lat1, lat0
     out = var
     for dim in meta["vars"][var]:
-        r = role(dim)
-        if r == "t":
+        if dim == "time":
             out += f"[({t0}):1:({t1})]"
-        elif r == "y":
+        elif dim == "latitude":
             out += f"[({lat0}):{stride}:({lat1})]"
-        elif r == "x":
+        elif dim == "longitude":
             out += f"[({lon0}):{stride}:({lon1})]"
         else:
             out += "[0:1:0]"
@@ -121,7 +96,7 @@ def grab(meta, varlist, t0, t1, box, stride, out):
             with open(out, "wb") as f:
                 for chunk in r.iter_content(1 << 20):
                     f.write(chunk)
-            print("->", out, f"{out.stat().st_size/1e6:.1f} MB")
+            print("->", out, f"{out.stat().st_size/1e6:.1f} MB raw")
             return
         body = r.text[:400]
         if not flip and "greater than" in body.lower():
@@ -130,51 +105,59 @@ def grab(meta, varlist, t0, t1, box, stride, out):
         raise SystemExit(f"erddap answered {r.status_code}:\n{body}")
 
 
-def catalogue(server):
-    cols = "datasetID,title,minLongitude,maxLongitude,minLatitude,maxLatitude,minTime,maxTime,griddap"
-    r = requests.get(f"{server}/tabledap/allDatasets.json?{cols}", timeout=120)
-    r.raise_for_status()
-    t = r.json()["table"]
-    return [dict(zip(t["columnNames"], row)) for row in t["rows"]]
+def save(ds, path):
+    for v in ds.variables.values():
+        v.encoding = {}
+    tmp = pathlib.Path(str(path) + ".tmp")
+    ds.to_netcdf(tmp)
+    os.replace(tmp, path)
 
 
-def show(server, words):
-    hits = []
-    for d in catalogue(server):
-        if not d.get("griddap"):
-            continue
-        hay = f"{d['datasetID']} {d['title'] or ''}".lower()
-        if all(w.lower() in hay for w in words):
-            hits.append(d)
-    if not hits:
-        print(f"nothing matching {words} on {server}")
-        return
-    for d in sorted(hits, key=lambda d: d["datasetID"]):
-        span = f"{(d['minTime'] or '?')[:10]} -> {(d['maxTime'] or '?')[:10]}"
-        bbox = ""
-        if d["minLatitude"] not in (None, ""):
-            bbox = f"  lat {d['minLatitude']:.1f}/{d['maxLatitude']:.1f}  lon {d['minLongitude']:.1f}/{d['maxLongitude']:.1f}"
-        print(f"{d['datasetID']}\n    {d['title']}\n    {span}{bbox}\n")
+def clean_sst(path, var):
+    import xarray as xr
+    with xr.open_dataset(path) as ds:
+        ds = ds[[var]].load()
+    ds = ds.rename({var: "analysed_sst"}) if var != "analysed_sst" else ds
+    ds = ds.sortby("latitude").sortby("longitude")
+    ds["analysed_sst"] = ds["analysed_sst"].astype("float32")
+    save(ds, path)
+    T = ds["analysed_sst"]
+    sea = int(T.notnull().all("time").sum())
+    print(f"   sst  {T.sizes['time']} days, {T.sizes['latitude']} x {T.sizes['longitude']} grid, {sea} sea cells")
+
+
+def daily_radar(path):
+    import numpy as np
+    import xarray as xr
+    with xr.open_dataset(path) as ds:
+        ds = ds.load()
+    ds = ds.sortby("latitude").sortby("longitude")
+    u, v = ds["EWCT"], ds["NSCT"]
+    ok = u.notnull() & v.notnull()
+    if "GDOP" in ds:
+        ok &= ds["GDOP"] <= MAX_GDOP
+    n = ok.resample(time="1D").sum()
+    ud = u.where(ok).resample(time="1D").mean()
+    vd = v.where(ok).resample(time="1D").mean()
+    keep = n >= MIN_HOURS
+    out = xr.Dataset({"EWCT": ud.where(keep).astype("float32"), "NSCT": vd.where(keep).astype("float32")}, attrs=ds.attrs)
+    out = out.assign_coords(time=out["time"] + np.timedelta64(12, "h"))
+    save(out, path)
+    cells = int(keep.sum())
+    print(f"   radar {out.sizes['time']} days, {cells} cell-days kept (GDOP <= {MAX_GDOP}, >= {MIN_HOURS} h)")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2020-10-01")
     ap.add_argument("--end", default="2020-10-21")
-    ap.add_argument("--sst-server", default=SST_SERVER)
     ap.add_argument("--sst-id", default=SST_ID)
-    ap.add_argument("--radar-server", default=RADAR_SERVER)
     ap.add_argument("--radar-id", default=RADAR_ID)
-    ap.add_argument("--info", action="store_true", help="print what both datasets contain, download nothing")
-    ap.add_argument("--list", nargs="*", metavar="WORD", help="search the radar server catalogue")
+    ap.add_argument("--info", action="store_true", help="show what both datasets hold, download nothing")
     a = ap.parse_args()
 
-    if a.list is not None:
-        show(a.radar_server, a.list or ["hf"])
-        raise SystemExit(0)
-
-    rad = info(a.radar_server, a.radar_id)
-    sst = info(a.sst_server, a.sst_id)
+    rad = info(RADAR_SERVER, a.radar_id)
+    sst = info(SST_SERVER, a.sst_id)
     if a.info:
         describe(rad)
         describe(sst)
@@ -182,20 +165,20 @@ if __name__ == "__main__":
 
     check_dates(rad, a.start, a.end)
     check_dates(sst, a.start, a.end)
-
-    _, y = axis(rad, "y")
-    _, x = axis(rad, "x")
-    if not (y and x):
-        raise SystemExit(f"{rad['id']}: no latitude/longitude range in its metadata, run --info")
-    rbox = (y[0], y[1], x[0], x[1])
-    sbox = (y[0] - PAD, y[1] + PAD, x[0] - PAD, x[1] + PAD)
-    print(f"radar box lat {rbox[0]:.2f}/{rbox[1]:.2f} lon {rbox[2]:.2f}/{rbox[3]:.2f}   sst box +{PAD}°")
+    (y0, y1), (x0, x1) = rad["ranges"]["latitude"], rad["ranges"]["longitude"]
+    rbox = (y0, y1, x0, x1)
+    sbox = (y0 - PAD, y1 + PAD, x0 - PAD, x1 + PAD)
 
     rvars = [v for v in ("EWCT", "NSCT", "GDOP") if v in rad["vars"]]
-    if not {"EWCT", "NSCT"} <= set(rvars):
-        raise SystemExit(f"{rad['id']} has no EWCT/NSCT, it is not a total-current radar product. Variables: {list(rad['vars'])}")
     svar = "analysed_sst" if "analysed_sst" in sst["vars"] else next(iter(sst["vars"]))
+    rpath = f"data/radar_{a.start}_{a.end}.nc"
+    spath = f"data/sst_{a.start}_{a.end}.nc"
 
-    grab(rad, rvars, f"{a.start}T00:00:00Z", f"{a.end}T23:00:00Z", rbox, 1, f"data/radar_{a.start}_{a.end}.nc")
-    # MUR is stamped 09:00; T00:00 snaps to the same day at both ends, 23:59 would pull the next one
-    grab(sst, [svar], f"{a.start}T00:00:00Z", f"{a.end}T00:00:00Z", sbox, SST_STRIDE, f"data/sst_{a.start}_{a.end}.nc")
+    grab(rad, rvars, f"{a.start}T00:00:00Z", f"{a.end}T23:00:00Z", rbox, 1, rpath)
+    daily_radar(rpath)
+    # MUR is stamped 09:00; T00:00 snaps to the same day at both ends
+    grab(sst, [svar], f"{a.start}T00:00:00Z", f"{a.end}T00:00:00Z", sbox, SST_STRIDE, spath)
+    clean_sst(spath, svar)
+    print("\nready. next:")
+    print(f"  python pinn.py --data {spath} --out runs/oct2020 --steps 4000 --batch 2048")
+    print(f"  python evaluate.py --run runs/oct2020 --data {spath} --radar {rpath}")
