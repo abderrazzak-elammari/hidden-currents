@@ -4,4 +4,6 @@ torch
 xarray
 netCDF4
 requests
+matplotlib
+pillow
 pytest
