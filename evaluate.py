@@ -125,13 +125,13 @@ def table(m, f):
     print(f"  {P.get('n')} points, reference mean speed {P.get('ref_speed') or 0:.3f} m/s\n")
 
 
-def main(run, data, radar=None, out="web/data/run.json"):
+def main(run, data, radar=None, out="web/data/run.json", alpha=optflow.ALPHA):
     run = pathlib.Path(run)
     F = np.load(run / "fields.npz")
     d = load(data)
     x, y, t, T = d["x"], d["y"], d["t"], d["T"]
     u, v = F["u"], F["v"]
-    uo, vo = optflow.currents(T, x, y, t)
+    uo, vo = optflow.currents(T, x, y, t, alpha=alpha)
 
     if d["src"] == "synth":
         ur = np.repeat(d["u_ref"][None], len(t), 0)
@@ -178,5 +178,6 @@ if __name__ == "__main__":
     ap.add_argument("--data", default="data/synth.npz")
     ap.add_argument("--radar", default=None)
     ap.add_argument("--out", default="web/data/run.json")
+    ap.add_argument("--alpha", type=float, default=optflow.ALPHA, help="Horn–Schunck smoothing, pixel units")
     a = ap.parse_args()
-    main(a.run, a.data, a.radar, a.out)
+    main(a.run, a.data, a.radar, a.out, a.alpha)

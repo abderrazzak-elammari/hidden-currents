@@ -28,6 +28,11 @@ def test_optflow_direction(twin):
     u, v = optflow.currents(d["T"], d["x"], d["y"], d["t"])
     assert u.shape == d["T"].shape
     assert np.isfinite(u).sum() > 0
+    # the old baseline mixed per-km gradients with a per-pixel alpha and returned ~0.3% of the speed
+    sp, sp_ref = np.nanmean(np.hypot(u, v)), np.nanmean(np.hypot(d["u"], d["v"]))
+    assert sp > 0.3 * sp_ref
+    ok = np.isfinite(u[2]) & np.isfinite(d["u"])
+    assert np.corrcoef(u[2][ok], d["u"][ok])[0, 1] > 0.4
 
 
 def test_train_and_evaluate(twin, tmp_path):
