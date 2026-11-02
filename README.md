@@ -47,6 +47,10 @@ Then http://localhost:8000.
 
 On CPU, 4000 steps with batch 2048 take ~7 min. On a GPU it is a minute. Use `--batch 4096` as soon as memory allows.
 
+The PDE weight is balanced against the data term by gradient norms, with a floor (`--lam-min`, default 0.5). Without it, on real SST the residual cannot reach zero, the balancing walks the weight down to ~0.01 and the network ends up fitting temperatures with ψ unconstrained. First real run (Oct 2020, no floor): angle error 88°, i.e. random.
+
+`evaluate.py` scores the full vector, the skill against predicting no current, and separately the component across isotherms, the only one a tracer can see.
+
 Radar days with fewer than 12 valid hours are dropped (a short mean is mostly tide), and so are cells with GDOP above 2, the usual EU HFR cut.
 
 Tests, including the real-data path on files shaped like the two servers' output:

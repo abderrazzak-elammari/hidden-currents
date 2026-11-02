@@ -145,7 +145,7 @@ def gnorm(loss, params):
     return torch.sqrt(sum((g ** 2).sum() for g in gs if g is not None) + 1e-12)
 
 
-def train(d, out, steps=8000, batch=4096, lr=1e-3, lam_S=1e-2, lam_psi_t=1e-3, seed=0, device="cpu", log_every=100):
+def train(d, out, steps=8000, batch=4096, lr=1e-3, lam_S=1e-2, lam_psi_t=1e-3, lam_min=0.5, seed=0, device="cpu", log_every=100):
     torch.manual_seed(seed)
     np.random.seed(seed)
     out = pathlib.Path(out)
@@ -198,7 +198,9 @@ def train(d, out, steps=8000, batch=4096, lr=1e-3, lam_S=1e-2, lam_psi_t=1e-3, s
 
         if it % 50 == 0 and it > 0:
             gd, gp = gnorm(l_data, params), gnorm(l_pde, params)
-            lam_pde = 0.9 * lam_pde + 0.1 * (gd / gp).clamp(1e-3, 1e3).item()
+            # floor: on real data the residual cannot reach zero, and pure gradient balancing
+            # then walks lam to ~0, i.e. switches the physics off and psi stops learning
+            lam_pde = max(lam_min, 0.9 * lam_pde + 0.1 * (gd / gp).clamp(1e-3, 1e3).item())
 
         loss = l_data + lam_pde * l_pde + l_reg
         opt.zero_grad(set_to_none=True)
@@ -245,6 +247,7 @@ if __name__ == "__main__":
     ap.add_argument("--steps", type=int, default=8000)
     ap.add_argument("--batch", type=int, default=4096)
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--lam-min", type=float, default=0.5, help="floor on the PDE weight")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args()
-    train(load(a.data), a.out, steps=a.steps, batch=a.batch, lr=a.lr, device=a.device)
+    train(load(a.data), a.out, steps=a.steps, batch=a.batch, lr=a.lr, lam_min=a.lam_min, device=a.device)
