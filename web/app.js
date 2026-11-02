@@ -131,14 +131,18 @@ function metrics() {
     ["speed bias", "speed_bias", "m/s", 3, "abs"],
   ];
   const tb = $("#metrics tbody"); tb.innerHTML = "";
+  const has = x => x != null && Number.isFinite(x);
   for (const [label, key, unit, d, best] of rows) {
     const a = m.pinn[key], b = m.optflow[key];
-    const better = best === "hi" ? (a > b ? 0 : 1) : best === "abs" ? (Math.abs(a) < Math.abs(b) ? 0 : 1) : (a < b ? 0 : 1);
+    let better = -1;
+    if (has(a) && has(b)) better = best === "hi" ? (a > b ? 0 : 1) : best === "abs" ? (Math.abs(a) < Math.abs(b) ? 0 : 1) : (a < b ? 0 : 1);
+    const cell = (x, i) => `<td class="${better === i ? "win" : ""}">${has(x) ? x.toFixed(d) + unit : "—"}</td>`;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${label}</td><td class="${better === 0 ? "win" : ""}">${a.toFixed(d)}${unit}</td><td class="${better === 1 ? "win" : ""}">${b.toFixed(d)}${unit}</td>`;
+    tr.innerHTML = `<td>${label}</td>${cell(a, 0)}${cell(b, 1)}`;
     tb.appendChild(tr);
   }
-  $("#metrics-note").textContent = `${m.pinn.n.toLocaleString("en")} points compared · mean reference speed ${m.pinn.ref_speed.toFixed(3)} m/s · reference: ${D.reference}`;
+  const ref = has(m.pinn.ref_speed) ? ` · mean reference speed ${m.pinn.ref_speed.toFixed(3)} m/s` : "";
+  $("#metrics-note").textContent = `${(m.pinn.n || 0).toLocaleString("en")} points compared${ref} · reference: ${D.reference}`;
   $("#kappa").textContent = D.kappa_m2s.toFixed(1);
 }
 
@@ -187,7 +191,7 @@ async function boot() {
   const tr = range(D.T);
   D._Trange = [tr[0], tr[1]];
   $("#day").max = D.t.length - 1;
-  $("#badge-source").textContent = D.source === "sst" ? "Ifremer ODYSSEA SST + HF radar" : "synthetic twin";
+  $("#badge-source").textContent = D.source === "sst" ? "MUR SST + EUSKOOS HF radar" : "synthetic twin";
   $("#badge-dates").textContent = D.dates ? `${D.dates[0]} → ${D.dates[D.dates.length - 1]}` : `${D.t.length} days`;
   $("#ref-label").textContent = D.source === "sst" ? "HF radar" : "truth";
   metrics(); lossCurve(); draw();

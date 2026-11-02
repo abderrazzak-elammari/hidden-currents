@@ -13,14 +13,34 @@ KM_PER_DAY = 86.4
 
 # ---------------------------------------------------------------- data
 
+def tidy(ds):
+    ren = {}
+    for k in set(ds.dims) | set(ds.coords):
+        low = k.lower()
+        for want, names in (("latitude", ("lat", "latitude")), ("longitude", ("lon", "longitude")), ("time", ("time",))):
+            if low in names and k != want:
+                ren[k] = want
+    if ren:
+        ds = ds.rename(ren)
+    return ds.sortby("latitude").sortby("longitude")
+
+
+def flat3(a):
+    extra = [d for d in a.dims if d not in ("time", "latitude", "longitude")]
+    if extra:
+        a = a.isel({d: 0 for d in extra})
+    return a.transpose("time", "latitude", "longitude")
+
+
 def load(path):
     p = pathlib.Path(path)
     if p.suffix == ".npz":
         d = np.load(p)
         return dict(x=d["x"], y=d["y"], t=d["t"], T=d["T"], u_ref=d["u"], v_ref=d["v"], src="synth")
     import xarray as xr
-    ds = xr.open_dataset(p)
-    sst = ds["analysed_sst"]
+    ds = tidy(xr.open_dataset(p))
+    name = "analysed_sst" if "analysed_sst" in ds else next(v for v in ds.data_vars if ds[v].ndim >= 3)
+    sst = flat3(ds[name])
     lat = sst["latitude"].values.astype(float)
     lon = sst["longitude"].values.astype(float)
     T = sst.values.astype(np.float32)

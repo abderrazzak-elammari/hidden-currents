@@ -7,20 +7,30 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 import optflow
-from pinn import load
+from pinn import flat3, load, tidy
 
 
-def radar_daily(path, time, lat0, lon0):
+def radar_daily(path, time, lat0, lon0, min_hours=12, max_gdop=2.0):
     import xarray as xr
-    ds = xr.open_dataset(path)
-    u = ds["EWCT"].squeeze("depth", drop=True)
-    v = ds["NSCT"].squeeze("depth", drop=True)
-    days = np.array(time, dtype="datetime64[D]")
+    ds = tidy(xr.open_dataset(path))
+    u, v = flat3(ds["EWCT"]), flat3(ds["NSCT"])
+    g = flat3(ds["GDOP"]) if "GDOP" in ds else None
+    tt = u["time"].values
+    U, V = u.values, v.values
+    bad = ~(np.isfinite(U) & np.isfinite(V))
+    if g is not None:
+        bad |= ~(g.values <= max_gdop)        # radar geometry too poor, standard EU HFR cut
+    U, V = np.where(bad, 0, U), np.where(bad, 0, V)
     ud, vd = [], []
-    for d in days:
-        sel = (u["time"].values >= d) & (u["time"].values < d + np.timedelta64(1, "D"))
-        ud.append(u.values[sel].mean(0) if sel.any() else np.full(u.shape[1:], np.nan))
-        vd.append(v.values[sel].mean(0) if sel.any() else np.full(v.shape[1:], np.nan))
+    for d in np.array(time, dtype="datetime64[D]"):
+        sel = (tt >= d) & (tt < d + np.timedelta64(1, "D"))
+        n = (~bad[sel]).sum(0)
+        mu = U[sel].sum(0) / np.maximum(n, 1)
+        mv = V[sel].sum(0) / np.maximum(n, 1)
+        mu[n < min_hours] = np.nan            # a daily mean from 3 hours is mostly tide
+        mv[n < min_hours] = np.nan
+        ud.append(mu)
+        vd.append(mv)
     lat = ds["latitude"].values.astype(float)
     lon = ds["longitude"].values.astype(float)
     x = (lon - lon0) * 111.32 * math.cos(math.radians(lat0))
@@ -49,16 +59,17 @@ def score(u, v, ur, vr):
     dot = u * ur + v * vr
     cosang = np.clip(dot / (sp * spr + 1e-9), -1, 1)
     w = spr > 0.03
-    return dict(
+    m = dict(
         n=int(ok.sum()),
         rmse_vec=float(np.sqrt(np.mean((u - ur) ** 2 + (v - vr) ** 2))),
         rmse_speed=float(np.sqrt(np.mean((sp - spr) ** 2))),
         corr_u=float(np.corrcoef(u, ur)[0, 1]),
         corr_v=float(np.corrcoef(v, vr)[0, 1]),
-        angle_deg=float(np.degrees(np.arccos(cosang[w])).mean()) if w.any() else float("nan"),
+        angle_deg=float(np.degrees(np.arccos(cosang[w])).mean()) if w.any() else None,
         speed_bias=float(np.mean(sp - spr)),
         ref_speed=float(spr.mean()),
     )
+    return {k: (None if isinstance(x, float) and not np.isfinite(x) else x) for k, x in m.items()}
 
 
 def main(run, data, radar=None, out="web/data/run.json"):
@@ -81,6 +92,8 @@ def main(run, data, radar=None, out="web/data/run.json"):
 
     m_pinn = score(u, v, ur, vr)
     m_flow = score(uo, vo, ur, vr)
+    if m_pinn["n"] < 500:
+        print(f"warning: only {m_pinn['n']} points overlap the reference, the scores mean little")
     hist = json.loads((run / "history.json").read_text())
 
     def pack(a, nd=3):
