@@ -7,3 +7,4 @@ data/*
 runs/
 web/data/run.json
 .pytest_cache/
+!web/data/demo.json

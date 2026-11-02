@@ -185,13 +185,17 @@ function play() {
 }
 
 async function boot() {
-  D = await (await fetch("data/run.json")).json();
+  for (const f of ["data/run.json", "data/demo.json"]) {
+    const r = await fetch(f, { cache: "no-store" });
+    if (r.ok) { D = await r.json(); D._file = f; break; }
+  }
+  if (!D) { document.querySelector(".map-wrap").innerHTML = '<p class="empty">No data yet: run <code>python evaluate.py</code></p>'; return; }
   D._speed = speedFrames(D.u, D.v);
   D._speedRange = [0, range(D._speed)[1]];
   const tr = range(D.T);
   D._Trange = [tr[0], tr[1]];
   $("#day").max = D.t.length - 1;
-  $("#badge-source").textContent = D.source === "sst" ? "MUR SST + EUSKOOS HF radar" : "synthetic twin";
+  $("#badge-source").textContent = (D.source === "sst" ? "MUR SST + EUSKOOS HF radar" : "synthetic twin") + (D._file.endsWith("demo.json") ? " · demo" : "");
   $("#badge-dates").textContent = D.dates ? `${D.dates[0]} → ${D.dates[D.dates.length - 1]}` : `${D.t.length} days`;
   $("#ref-label").textContent = D.source === "sst" ? "HF radar" : "truth";
   metrics(); lossCurve(); draw();
