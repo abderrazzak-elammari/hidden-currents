@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+title: "hidden-currents: ocean surface currents from SST with an advection-diffusion PINN"
+type: software
+authors:
+  - family-names: "El Ammari"
+    given-names: "Abderrazzak"
+    affiliation: "Laboratoire MIA, La Rochelle Université"
+repository-code: "https://github.com/abderrazzak-elammari/hidden-currents"
+license: MIT
+date-released: 2026-11-02
+keywords:
+  - physics-informed neural networks
+  - inverse problems
+  - sea surface temperature
+  - HF radar
+  - oceanography
