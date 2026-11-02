@@ -94,7 +94,6 @@ def to_image(fig):
     return Image.open(buf).convert("RGB")
 
 
-# ---------------------------------------------------------------- hero
 
 def hero_frame(D, k, lims, vmax):
     fig, axs = plt.subplots(1, 3, figsize=(12.8, 4.9), dpi=100)
@@ -129,7 +128,7 @@ def hero(D, out):
     return frames[len(frames) // 2]
 
 
-# ---------------------------------------------------------------- comparison
+# comparison
 
 def comparison(D, out, k=None):
     k = len(D["t"]) // 2 if k is None else k
@@ -161,7 +160,7 @@ def comparison(D, out, k=None):
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- across isotherms
+#  across isotherms
 
 def across_parts(D, U, V, q=70):
     T, x, y = D["T"], D["x"], D["y"]
@@ -204,7 +203,7 @@ def across(D, out):
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- training
+#  training
 
 def training(D, out, kappa_true=None):
     H = D["history"]
@@ -248,7 +247,7 @@ def training(D, out, kappa_true=None):
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- social preview
+#  social preview
 
 def social(D, out, still):
     fig = plt.figure(figsize=(12.8, 6.4), dpi=100)
