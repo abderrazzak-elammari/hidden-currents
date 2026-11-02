@@ -1,4 +1,6 @@
 import argparse
+import pathlib
+
 import numpy as np
 from scipy.ndimage import map_coordinates
 
@@ -68,6 +70,7 @@ if __name__ == "__main__":
     ap.add_argument("--noise", type=float, default=0.05)
     a = ap.parse_args()
     d = run(days=a.days, noise=a.noise)
+    pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     np.savez(a.out, **d)
     sp = np.hypot(d["u"], d["v"])
     print(f"{a.out}: {d['T'].shape}, max speed {np.nanmax(sp):.2f} m/s, kappa {d['kappa']:.2f} km²/day")

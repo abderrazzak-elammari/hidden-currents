@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "synth",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "synth.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "train (synthetic)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "pinn.py",
+      "args": ["--data", "data/synth.npz", "--out", "runs/synth", "--steps", "4000"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "evaluate (synthetic)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "evaluate.py",
+      "args": ["--run", "runs/synth", "--data", "data/synth.npz"],
+      "console": "integratedTerminal"
+    }
+  ]
+}
