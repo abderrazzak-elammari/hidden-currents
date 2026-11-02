@@ -144,6 +144,22 @@ tests/            pytest: twin, training, evaluation, real-data loading on serve
 - Use the radar QC flags on top of GDOP.
 - L-BFGS after Adam; sweep the length of the time window.
 
+
+## References
+
+1. M. Raissi, P. Perdikaris, G. E. Karniadakis. Physics-informed neural networks: a deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. *Journal of Computational Physics* 378, 686-707, 2019. [doi:10.1016/j.jcp.2018.10.045](https://doi.org/10.1016/j.jcp.2018.10.045)
+2. M. Raissi, A. Yazdani, G. E. Karniadakis. Hidden fluid mechanics: learning velocity and pressure fields from flow visualizations. *Science* 367(6481), 1026-1030, 2020. [doi:10.1126/science.aaw4741](https://doi.org/10.1126/science.aaw4741)
+3. M. Tancik, P. P. Srinivasan, B. Mildenhall, S. Fridovich-Keil, N. Raghavan, U. Singhal, R. Ramamoorthi, J. T. Barron, R. Ng. Fourier features let networks learn high frequency functions in low dimensional domains. *NeurIPS* 33, 2020. [arXiv:2006.10739](https://arxiv.org/abs/2006.10739)
+4. A. S. Krishnapriyan, A. Gholami, S. Zhe, R. M. Kirby, M. W. Mahoney. Characterizing possible failure modes in physics-informed neural networks. *NeurIPS* 34, 2021. [arXiv:2109.01050](https://arxiv.org/abs/2109.01050)
+5. S. Wang, Y. Teng, P. Perdikaris. Understanding and mitigating gradient flow pathologies in physics-informed neural networks. *SIAM Journal on Scientific Computing* 43(5), A3055-A3081, 2021. [doi:10.1137/20M1318043](https://doi.org/10.1137/20M1318043)
+6. B. K. P. Horn, B. G. Schunck. Determining optical flow. *Artificial Intelligence* 17, 185-203, 1981. [doi:10.1016/0004-3702(81)90024-2](https://doi.org/10.1016/0004-3702(81)90024-2)
+7. W. J. Emery, A. C. Thomas, M. J. Collins, W. R. Crawford, D. L. Mackas. An objective method for computing advective surface velocities from sequential infrared satellite images. *Journal of Geophysical Research* 91(C11), 12865-12878, 1986. [doi:10.1029/JC091iC11p12865](https://doi.org/10.1029/JC091iC11p12865)
+8. A. Sinha, R. Abernathey. Estimating ocean surface currents with machine learning. *Frontiers in Marine Science* 8, 672477, 2021. [doi:10.3389/fmars.2021.672477](https://doi.org/10.3389/fmars.2021.672477)
+9. T. M. Chin, J. Vazquez-Cuervo, E. M. Armstrong. A multi-scale high-resolution analysis of global sea surface temperature. *Remote Sensing of Environment* 200, 154-169, 2017. [doi:10.1016/j.rse.2017.07.029](https://doi.org/10.1016/j.rse.2017.07.029)
+10. JPL MUR MEaSUREs Project. GHRSST Level 4 MUR Global Foundation Sea Surface Temperature Analysis, v4.1. NASA PO.DAAC. [doi:10.5067/GHGMR-4FJ04](https://doi.org/10.5067/GHGMR-4FJ04)
+11. L. Solabarrieta, A. Rubio, S. Castanedo, R. Medina, G. Charria, C. Hernández. Surface water circulation patterns in the southeastern Bay of Biscay: new evidences from HF radar data. *Continental Shelf Research* 74, 60-76, 2014. [doi:10.1016/j.csr.2013.11.022](https://doi.org/10.1016/j.csr.2013.11.022)
+12. A. Rubio, J. Mader, L. Corgnati, C. Mantovani, A. Griffa et al. HF radar activity in European coastal seas: next steps toward a pan-European HF radar network. *Frontiers in Marine Science* 4, 8, 2017. [doi:10.3389/fmars.2017.00008](https://doi.org/10.3389/fmars.2017.00008)
+
 ## Citation
 
 See [CITATION.cff](CITATION.cff). MIT licence.
