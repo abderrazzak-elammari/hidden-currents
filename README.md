@@ -97,7 +97,7 @@ source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Synthetic twin, end to end. Training takes 20 to 45 minutes on a laptop CPU:
+Synthetic twin, end to end. 
 
 ```bash
 python synth.py
